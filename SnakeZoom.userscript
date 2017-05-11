@@ -1,0 +1,95 @@
+// ==UserScript==
+// @name         SnakeZoom
+// @namespace    http://tampermonkey.net/
+// @version      0.1
+// @description  try to take over the world!
+// @author       LaxLeo
+// @match        http://slither.io/
+// @grant        unsafeWindow
+// ==/UserScript==
+
+(function(){
+  'use strict';
+  if (window.top != window.self){  //-- Don't run on frames or iframes
+      console.log("[#] Frame blocked");
+      return;
+  }
+    let W = unsafeWindow;
+    let currentZoom = 0.0;
+    let multiplier = 1.0;
+
+    let settings = {
+        ctrlDown: false,
+        shiftDown: false,
+        altDown: false,
+        lockZoom: false,
+        gsc: W.gsc
+    };
+
+    /*
+     KEYMAP
+     Shift | Zoom out a lot while pressed
+     Strg  | Zoom out a little while pressed
+     Alt   | Don't
+     <     | Switch between current zoom and initial zoom
+    */
+    function updateZoom(){
+        if (!W.gsc)
+            return;
+        let x = settings.lockZoom ? W.sgsc : currentZoom;
+        if (settings.shiftDown)
+            x += 20;
+        else if (settings.ctrlDown)
+            x += 10;
+
+        multiplier = -1.5/(Math.pow(Math.E, (-x/10.0))+1.0)+1.75;
+        settings.gsc = 0.9*multiplier;
+        updateGSC();
+    }
+
+    // increment / decrement currentZoom based on wheel direction and delta
+    function zoom(e) {
+        if (!W.gsc || settings.ctrlDown || settings.altDown || settings.shiftDown) {
+            return;
+        }
+        if (e.wheelDelta < 0){
+            currentZoom++;
+        }
+        else if (e.wheelDelta > 0){
+            currentZoom--;
+        }
+        updateZoom();
+    }
+
+    function keyPressed(e){
+        if (W.gsc)
+            updateSettings(e, true);
+    }
+
+    function keyReleased(e){
+        if (W.gsc)
+            updateSettings(e, false);
+    }
+
+    function updateSettings(keyEvent, isKeyDown){
+        settings = {
+            ctrlDown:  isKeyDown && keyEvent.keyCode == 17,
+            shiftDown: isKeyDown && keyEvent.keyCode == 16,
+            altDown:   isKeyDown && keyEvent.keyCode == 18,
+            lockZoom:  (isKeyDown && keyEvent.keyCode == 226) ? !settings.lockZoom : settings.lockZoom,// Only change on keydown
+            gsc: settings.gsc
+        };
+        //if([16, 17, 18, 226].indexOf(keyEvent.keyCode))
+           updateZoom();
+    }
+    function updateGSC(){
+        W.gsc = settings.gsc;
+    }
+    W.addEventListener("mousewheel", zoom, false);
+    W.addEventListener("keydown", keyPressed, false);
+    W.addEventListener("keyup", keyReleased, false);
+    //window.onmousewheel = zoom;
+    //window.onkeydown = keyPressed;
+    //window.onkeyup = keyReleased;
+    setInterval(updateGSC, 10);
+})();
