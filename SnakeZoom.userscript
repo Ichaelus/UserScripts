@@ -25,7 +25,6 @@
         lockZoom: false,
         gsc: W.gsc
     };
-
     /*
      KEYMAP
      Shift | Zoom out a lot while pressed
@@ -73,9 +72,9 @@
 
     function updateSettings(keyEvent, isKeyDown){
         settings = {
-            ctrlDown:  isKeyDown && keyEvent.keyCode == 17,
+     //       ctrlDown:  isKeyDown && keyEvent.keyCode == 17,
             shiftDown: isKeyDown && keyEvent.keyCode == 16,
-            altDown:   isKeyDown && keyEvent.keyCode == 18,
+       //     altDown:   isKeyDown && keyEvent.keyCode == 18,
             lockZoom:  (isKeyDown && keyEvent.keyCode == 226) ? !settings.lockZoom : settings.lockZoom,// Only change on keydown
             gsc: settings.gsc
         };
@@ -92,4 +91,92 @@
     //window.onkeydown = keyPressed;
     //window.onkeyup = keyReleased;
     setInterval(updateGSC, 10);
+    /*
+     * Methods listed below belong to the
+     * User management and leaderboard functionality
+     */
+    function UserMethods(){
+        // public
+        let addHighscore = function(score){
+            this.highscores.push(score);
+            // Sort highscores descending
+            this.highscores = this.highscores.sort( (a, b) => b-a);
+        };
+        let getGamesPlayed = function(){
+            return this.highscores.length;
+        };
+        let getBestScore = function(){
+            return this.highscores[0];
+        };
+        // private
+        // Return public methods
+        return {
+            addHighscore: addHighscore,
+            getGamesPlayed: getGamesPlayed,
+            getBestScore: getBestScore
+        };
+    }
+    function newUser(_name){
+        return{
+            name: _name,
+            highscores: []
+        };
+    }
+    function getUserList(){
+        let userList = localStorage.getItem("userList");
+        if(userList === null)
+            return {};
+        else
+            return JSON.parse(userList);
+    }
+    function saveUserList(userList){
+        localStorage.setItem("userList", JSON.stringify(userList));
+    }
+    function findUser(userName){
+        let userList = getUserList();
+        if(typeof(userList[userName]) !== "undefined")
+            return userList[userName];
+        return false;
+    }
+    function saveScore(userName, score){
+        userName = userName.trim() === "" ? "default" : userName.trim();
+        console.log("Saving score of " + score + " for player "+userName);
+        let userList = getUserList();
+        let user = findUser(userName);
+        if(!user){
+            console.log("Creating new user.");
+            user = newUser(userName);
+            console.log(user);
+            userList[userName] = user;
+        }
+        UserMethods().addHighscore.bind(user)(score);
+        userList[user.name] = user;
+        saveUserList(userList);
+        console.log(userList);
+    }
+    let gameRunning;
+    function lookForGameEnd(){
+       if(!W.playing){
+           console.log("Finished playing..");
+           clearInterval(gameRunning);
+           let score = parseInt(W.lastscore.children[1].innerHTML);
+           saveScore(W.my_nick, score);
+       }
+    }
+    function startGame(){
+        console.log("Started playing..");
+        gameRunning = setInterval(lookForGameEnd, 1000);
+    }
+    function addListenerToPlayButton(){
+        let initButtonInterval = setInterval(function(){
+            if(document.querySelector("#playh > div > div > div.nsi") !== null){
+                setTimeout(function(){
+                    console.log("Initialized Start Button");
+                    document.querySelector("#playh > div > div > div.nsi").addEventListener("click", startGame);
+                }, 100);
+                clearInterval(initButtonInterval);
+            }
+        }, 50);
+    }
+    addListenerToPlayButton();
 })();
