@@ -5,6 +5,8 @@
 // @description  try to take over the world!
 // @author       LaxLeo
 // @match        http://slither.io/
+// @downloadURL  https://raw.githubusercontent.com/Ichaelus/UserScripts/master/SnakeZoom.user.js
+// @updateURL    https://raw.githubusercontent.com/Ichaelus/UserScripts/master/SnakeZoom.user.js
 // @grant        unsafeWindow
 // ==/UserScript==
 
