@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SnakeZoom
-// @namespace    http://tampermonkey.net/
-// @version      0.1
+// @namespace    https://github.com/Ichaelus/UserScripts
+// @version      0.2
 // @description  try to take over the world!
 // @author       LaxLeo
 // @match        http://slither.io/
@@ -15,9 +15,12 @@
       return;
   }
     let W = unsafeWindow;
+    let startedPlaying;
+    
     let currentZoom = 0.0;
     let multiplier = 1.0;
-
+    
+    
     let settings = {
         ctrlDown: false,
         shiftDown: false,
@@ -97,18 +100,30 @@
      */
     function UserMethods(){
         // public
-        let addHighscore = function(score){
-            this.highscores.push(score);
+        let addHighscore = function(_score, _timePlayed){
+            this.highscores = getAttribute(this, "highscores");
+            // Init highscores, if not present
+            this.highscores.push({
+                score: _score,
+                timePlayed: _timePlayed
+            });
             // Sort highscores descending
-            this.highscores = this.highscores.sort( (a, b) => b-a);
+            this.highscores.sort( (a, b) => b.score - a.score);
         };
         let getGamesPlayed = function(){
-            return this.highscores.length;
+            return getAttribute(this, "highscores").length;
         };
         let getBestScore = function(){
-            return this.highscores[0];
+            return getAttribute(this, "highscores").length === 0 ? 0 : getAttribute(this, "highscores")[0].score;
         };
         // private
+        let getAttribute = function(that, tag){
+            // Try to access user.tag, if undefined create new
+            // Useful if a new attribute has been added to User and old localStorage data is being used
+            if(typeof(that[tag]) === 'undefined')
+                that[tag] = newUser(that.name)[tag];
+            return that[tag];
+        };
         // Return public methods
         return {
             addHighscore: addHighscore,
@@ -119,12 +134,12 @@
     function newUser(_name){
         return{
             name: _name,
-            highscores: []
+            highscores: [] // {score: 123, timePlayed: 456 (ms}
         };
     }
     function getUserList(){
         let userList = localStorage.getItem("userList");
-        if(userList === null)
+        if(userList === null || userList === "null")
             return {};
         else
             return JSON.parse(userList);
@@ -149,7 +164,7 @@
             console.log(user);
             userList[userName] = user;
         }
-        UserMethods().addHighscore.bind(user)(score);
+        UserMethods().addHighscore.bind(user)(score, Date.now() - startedPlaying);
         userList[user.name] = user;
         saveUserList(userList);
         console.log(userList);
@@ -165,6 +180,7 @@
     }
     function startGame(){
         console.log("Started playing..");
+        startedPlaying = Date.now();
         gameRunning = setInterval(lookForGameEnd, 1000);
     }
     function addListenerToPlayButton(){
