@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SnakeZoom
 // @namespace    https://github.com/Ichaelus/UserScripts
-// @version      0.2
+// @version      0.21
 // @description  try to take over the world!
 // @author       LaxLeo
 // @match        http://slither.io/
@@ -17,7 +17,7 @@
       return;
   }
     let W = unsafeWindow;
-    let startedPlaying;
+    let startedPlaying = null;
     
     let currentZoom = 0.0;
     let multiplier = 1.0;
@@ -111,6 +111,12 @@
             });
             // Sort highscores descending
             this.highscores.sort( (a, b) => b.score - a.score);
+            // Save current skin
+            this.skin = getAttribute(this, "skin");
+            this.skin = typeof(localStorage.snakercv) === "undefined" ? this.skin : localStorage.snakercv;
+            // Update lastPlayed
+            this.lastPlayed = getAttribute(this, "lastPlayed");
+            this.lastPlayed = Date.now();
         };
         let getGamesPlayed = function(){
             return getAttribute(this, "highscores").length;
@@ -118,7 +124,6 @@
         let getBestScore = function(){
             return getAttribute(this, "highscores").length === 0 ? 0 : getAttribute(this, "highscores")[0].score;
         };
-        // private
         let getAttribute = function(that, tag){
             // Try to access user.tag, if undefined create new
             // Useful if a new attribute has been added to User and old localStorage data is being used
@@ -126,17 +131,21 @@
                 that[tag] = newUser(that.name)[tag];
             return that[tag];
         };
+        // private
         // Return public methods
         return {
             addHighscore: addHighscore,
             getGamesPlayed: getGamesPlayed,
-            getBestScore: getBestScore
+            getBestScore: getBestScore,
+            getAttribute: getAttribute
         };
     }
     function newUser(_name){
         return{
+            highscores: [], // {score: 123, timePlayed: 456 (ms}
+            lastPlayed: 0, // Gets a Date.now() timestamp each time when played
             name: _name,
-            highscores: [] // {score: 123, timePlayed: 456 (ms}
+            skin: 41
         };
     }
     function getUserList(){
@@ -155,6 +164,20 @@
             return userList[userName];
         return false;
     }
+    // Get User with highest timestamp | todo: improve speed
+    function getCurrentUser(){
+        let userList = getUserList();
+        let maxTimeStamp = -1, user = false;
+        for(let userName in userList){
+            let currentUser = userList[userName];
+            let lastPlayed = UserMethods().getAttribute.bind()(currentUser, "lastPlayed"); // Ugly bunch of code.
+            if(lastPlayed > maxTimeStamp){
+                user = currentUser;
+                maxTimeStamp = lastPlayed;
+            }
+        }
+        return user;
+    }
     function saveScore(userName, score){
         userName = userName.trim() === "" ? "default" : userName.trim();
         console.log("Saving score of " + score + " for player "+userName);
@@ -170,10 +193,11 @@
         userList[user.name] = user;
         saveUserList(userList);
         console.log(userList);
+        startedPlaying = null; // Make sure, results are not being saved multiple times
     }
     let gameRunning;
     function lookForGameEnd(){
-       if(!W.playing){
+       if(!W.playing && startedPlaying !== null){
            console.log("Finished playing..");
            clearInterval(gameRunning);
            let score = parseInt(W.lastscore.children[1].innerHTML);
@@ -181,17 +205,23 @@
        }
     }
     function startGame(){
-        console.log("Started playing..");
-        startedPlaying = Date.now();
-        gameRunning = setInterval(lookForGameEnd, 1000);
+        if(startedPlaying === null){
+            console.log("Started playing..");
+            startedPlaying = Date.now();
+            gameRunning = setInterval(lookForGameEnd, 1000);
+        }
     }
     function addListenerToPlayButton(){
         let initButtonInterval = setInterval(function(){
-            if(document.querySelector("#playh > div > div > div.nsi") !== null){
+            if(typeof(W.play_btn) !== 'undefined'){ //W.document.querySelector("#playh > div > div > div.nsi") !== null){
                 setTimeout(function(){
                     console.log("Initialized Start Button");
-                    document.querySelector("#playh > div > div > div.nsi").addEventListener("click", startGame);
-                }, 100);
+                    W.play_btn.btnf.addEventListener("click", startGame);
+                    console.log("Current user:");
+                    console.log(getCurrentUser());
+                    if(getCurrentUser())
+                        nick_holder.firstElementChild.value= getCurrentUser().name;
+                }, 0);
                 clearInterval(initButtonInterval);
             }
         }, 50);
