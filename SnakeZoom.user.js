@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SnakeZoom
 // @namespace    https://github.com/Ichaelus/UserScripts
-// @version      0.21
+// @version      0.22
 // @description  try to take over the world!
 // @author       LaxLeo
 // @match        http://slither.io/
@@ -42,11 +42,11 @@
             return;
         let x = settings.lockZoom ? W.sgsc : currentZoom;
         if (settings.shiftDown)
-            x += 20;
-        else if (settings.ctrlDown)
             x += 10;
+        else if (settings.ctrlDown)
+            x -= 5;
 
-        multiplier = -1.5/(Math.pow(Math.E, (-x/10.0))+1.0)+1.75;
+        multiplier = -1.5/(Math.pow(Math.E, (-x/5.0))+1.0)+1.75;
         settings.gsc = 0.9*multiplier;
         updateGSC();
     }
@@ -77,7 +77,7 @@
 
     function updateSettings(keyEvent, isKeyDown){
         settings = {
-     //       ctrlDown:  isKeyDown && keyEvent.keyCode == 17,
+            ctrlDown:  isKeyDown && keyEvent.keyCode == 17,
             shiftDown: isKeyDown && keyEvent.keyCode == 16,
        //     altDown:   isKeyDown && keyEvent.keyCode == 18,
             lockZoom:  (isKeyDown && keyEvent.keyCode == 226) ? !settings.lockZoom : settings.lockZoom,// Only change on keydown
