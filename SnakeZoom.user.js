@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SnakeZoom
 // @namespace    https://github.com/Ichaelus/UserScripts
-// @version      0.22
+// @version      0.23
 // @description  try to take over the world!
 // @author       LaxLeo
 // @match        http://slither.io/
@@ -16,86 +16,97 @@
       console.log("[#] Frame blocked");
       return;
   }
+
     let W = unsafeWindow;
-    let startedPlaying = null;
-    
-    let currentZoom = 0.0;
-    let multiplier = 1.0;
-    
-    
-    let settings = {
-        ctrlDown: false,
-        shiftDown: false,
-        altDown: false,
-        lockZoom: false,
-        gsc: W.gsc
+
+    var SnakeScript = {
+        init: function(){
+            Zoom.init();
+            addListenerToPlayButton();
+        }
     };
-    /*
-     KEYMAP
-     Shift | Zoom out a lot while pressed
-     Strg  | Zoom out a little while pressed
-     Alt   | Don't
-     <     | Switch between current zoom and initial zoom
-    */
-    function updateZoom(){
-        if (!W.gsc)
-            return;
-        let x = settings.lockZoom ? W.sgsc : currentZoom;
-        if (settings.shiftDown)
-            x += 10;
-        else if (settings.ctrlDown)
-            x -= 5;
 
-        multiplier = -1.5/(Math.pow(Math.E, (-x/5.0))+1.0)+1.75;
-        settings.gsc = 0.9*multiplier;
-        updateGSC();
-    }
+    var User = {
 
-    // increment / decrement currentZoom based on wheel direction and delta
-    function zoom(e) {
-        if (!W.gsc || settings.ctrlDown || settings.altDown || settings.shiftDown) {
-            return;
+    };
+
+    var Zoom = {
+        /*
+         KEYMAP
+         Shift | Zoom out a little while pressed
+         Strg  | Zoom in a little while pressed
+         <     | Switch between current zoom and initial zoom
+        */
+        zoomState:{
+            currentZoom: 0.0,
+            sigmoidMultiplier: 1.0,
+        },
+        settings: {
+            ctrlDown: false,
+            shiftDown: false,
+            lockZoom: false,
+            zoomFactor: W.gsc
+        },
+        init: function(){
+            W.addEventListener("keydown", Zoom.keyPressed, false);
+            W.addEventListener("keyup", Zoom.keyReleased, false);
+            W.addEventListener("mousewheel", Zoom.zommOnScroll, false);
+            setInterval(Zoom.updateZoomfactor, 10);
+        },
+        keyPressed: function(KeyEvent){
+            if (W.gsc)
+                Zoom.updateSettings(KeyEvent, true);
+        },
+        keyReleased: function(KeyEvent){
+            if (W.gsc)
+                Zoom.updateSettings(KeyEvent, false);
+        },
+        updateSettings: function(keyEvent, isKeyDown){
+            Zoom.settings = {
+                ctrlDown:  isKeyDown && keyEvent.keyCode == 17,
+                shiftDown: isKeyDown && keyEvent.keyCode == 16,
+           //     altDown:   isKeyDown && keyEvent.keyCode == 18,
+                lockZoom:  (isKeyDown && keyEvent.keyCode == 226) ? !Zoom.settings.lockZoom : Zoom.settings.lockZoom,// Only change on keydown
+                zoomFactor: Zoom.settings.zoomFactor
+            };
+           Zoom.updateZoom();
+        },
+        zommOnScroll: function(scrollEvent) {
+            if (!W.gsc || Zoom.settings.ctrlDown || Zoom.settings.altDown || Zoom.settings.shiftDown) 
+                return;
+            if (scrollEvent.wheelDelta < 0)
+                Zoom.zoomState.currentZoom++;
+            else if (scrollEvent.wheelDelta > 0)
+                Zoom.zoomState.currentZoom--;
+            Zoom.updateZoom();
+        },
+        updateZoom: function(){
+            if (!W.gsc)
+                return;
+            let zoomChangeFactor = Zoom.settings.lockZoom ? W.sgsc : Zoom.zoomState.currentZoom;
+            if (Zoom.settings.shiftDown)
+                zoomChangeFactor += 10;
+            else if (Zoom.settings.ctrlDown)
+                zoomChangeFactor -= 5;
+
+            Zoom.zoomState.sigmoidMultiplier = Zoom.calculateSigmoid(zoomChangeFactor);
+            Zoom.settings.zoomFactor = 0.9*Zoom.zoomState.sigmoidMultiplier;
+            Zoom.updateZoomfactor();
+        },
+        calculateSigmoid: function(zoomChangeFactor){
+            return -1.5/(Math.pow(Math.E, (-zoomChangeFactor/5.0))+1.0)+1.75;
+        },
+        updateZoomfactor: function(){
+            W.gsc = Zoom.settings.zoomFactor;
         }
-        if (e.wheelDelta < 0){
-            currentZoom++;
-        }
-        else if (e.wheelDelta > 0){
-            currentZoom--;
-        }
-        updateZoom();
-    }
+    };
 
-    function keyPressed(e){
-        if (W.gsc)
-            updateSettings(e, true);
-    }
+    var DomManipulation ={
 
-    function keyReleased(e){
-        if (W.gsc)
-            updateSettings(e, false);
-    }
+    };
 
-    function updateSettings(keyEvent, isKeyDown){
-        settings = {
-            ctrlDown:  isKeyDown && keyEvent.keyCode == 17,
-            shiftDown: isKeyDown && keyEvent.keyCode == 16,
-       //     altDown:   isKeyDown && keyEvent.keyCode == 18,
-            lockZoom:  (isKeyDown && keyEvent.keyCode == 226) ? !settings.lockZoom : settings.lockZoom,// Only change on keydown
-            gsc: settings.gsc
-        };
-        //if([16, 17, 18, 226].indexOf(keyEvent.keyCode))
-           updateZoom();
-    }
-    function updateGSC(){
-        W.gsc = settings.gsc;
-    }
-    W.addEventListener("mousewheel", zoom, false);
-    W.addEventListener("keydown", keyPressed, false);
-    W.addEventListener("keyup", keyReleased, false);
-    //window.onmousewheel = zoom;
-    //window.onkeydown = keyPressed;
-    //window.onkeyup = keyReleased;
-    setInterval(updateGSC, 10);
+    
+    let startedPlaying = null;  
     /*
      * Methods listed below belong to the
      * User management and leaderboard functionality
@@ -140,6 +151,7 @@
             getAttribute: getAttribute
         };
     }
+
     function newUser(_name){
         return{
             highscores: [], // {score: 123, timePlayed: 456 (ms}
@@ -226,5 +238,5 @@
             }
         }, 50);
     }
-    addListenerToPlayButton();
+    SnakeScript.init();
 })();
