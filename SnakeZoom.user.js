@@ -3,7 +3,7 @@
 // ==UserScript==
 // @name         SnakeZoom
 // @namespace    https://github.com/Ichaelus/UserScripts
-// @version      0.3
+// @version      0.3.1
 // @description  try to take over the world!
 // @author       LaxLeo
 // @match        http://slither.io/
@@ -154,7 +154,7 @@
         },
         switchPlayer: function () {
             console.log("Switching player");
-            User.currentUser = DataHandler.getUserByTimestamp(DomManipulation.currentUserIndex);
+            User.setCurrentUser(DataHandler.getUserByTimestamp(DomManipulation.currentUserIndex));
             DomManipulation.displayPlayerName();
         }
     };
@@ -178,6 +178,7 @@
             // Sort highscores descending
             User.currentUser.highscores.sort((firstHighscore, secondHighscore) => secondHighscore.score - firstHighscore.score);
             User.setAttribute("skin", typeof(localStorage.snakercv) === "undefined" ? User.getAttribute("skin") : localStorage.snakercv);
+            console.log(typeof(localStorage.snakercv) === "undefined" ? User.getAttribute("skin") : localStorage.snakercv);
             User.setAttribute("lastPlayed", Date.now());
         },
         getGamesPlayed: function(){
@@ -203,6 +204,16 @@
             // Useful if a new attribute has been added to User and old localStorage data is being used
             if(typeof(User.currentUser[attributeName]) === 'undefined')
                 User.currentUser[attributeName] = User.newUser(User.currentUser.name)[attributeName];
+        },
+        getCurrentUser: function(){
+            return User.currentUser;
+        },
+        setCurrentUser: function(user){
+            User.currentUser = user;
+            localStorage.snakercv = User.getAttribute("skin");
+        },
+        temporarySetCurrentUser: function(user){
+            User.currentUser = user;
         }
     };
     var DataHandler = {
@@ -232,15 +243,15 @@
                 user = User.newUser(userName);
                 userList[userName] = user;
             }
-            User.currentUser = user;
+            User.temporarySetCurrentUser(user);
             User.addHighscore(score, Date.now() - SnakeScript.gameStartedTimestamp);
-            userList[user.name] = user;
+            userList[user.name] = User.getCurrentUser();
             DataHandler.saveUserList(userList);
             console.log(userList);
             SnakeScript.gameStartedTimestamp= null; // Make sure, results are not being saved multiple times
         },
         restoreCurrentUser: function(){
-            User.currentUser = DataHandler.getUserByTimestamp(0);
+            User.setCurrentUser(DataHandler.getUserByTimestamp(0));
         },
         getUserByTimestamp: function(userIndex){
             let userList = DataHandler.getUserList();
@@ -265,5 +276,4 @@
         }
     };
     SnakeScript.init();
-})();
-
+})();       
