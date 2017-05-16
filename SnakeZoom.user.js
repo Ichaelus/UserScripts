@@ -1,7 +1,9 @@
+
+
 // ==UserScript==
 // @name         SnakeZoom
 // @namespace    https://github.com/Ichaelus/UserScripts
-// @version      0.23
+// @version      0.3
 // @description  try to take over the world!
 // @author       LaxLeo
 // @match        http://slither.io/
@@ -11,23 +13,37 @@
 // ==/UserScript==
 
 (function(){
-  'use strict';
-  if (window.top != window.self){  //-- Don't run on frames or iframes
-      console.log("[#] Frame blocked");
-      return;
-  }
+    'use strict';
+    if (window.top != window.self){  //-- Don't run on frames or iframes
+        console.log("[#] Frame blocked");
+        return;
+    }
 
     let W = unsafeWindow;
 
     var SnakeScript = {
+        gameStartedTimestamp: null,
+        gameRunning: null,
         init: function(){
             Zoom.init();
-            addListenerToPlayButton();
+            DataHandler.restoreCurrentUser();
+            DomManipulation.init();
+        },
+        startGame: function(){
+            if(SnakeScript.gameStartedTimestamp === null){
+                console.log("Started playing..");
+                SnakeScript.gameStartedTimestamp = Date.now();
+                SnakeScript.gameRunning = setInterval(SnakeScript.lookForGameEnd, 1000);
+            }
+        },
+        lookForGameEnd: function(){
+            if(!W.playing && SnakeScript.gameStartedTimestamp!== null){
+                console.log("Finished playing..");
+                clearInterval(SnakeScript.gameRunning);
+                let score = parseInt(W.lastscore.children[1].innerHTML);
+                DataHandler.saveScore(W.my_nick, score);
+            }
         }
-    };
-
-    var User = {
-
     };
 
     var Zoom = {
@@ -36,7 +52,7 @@
          Shift | Zoom out a little while pressed
          Strg  | Zoom in a little while pressed
          <     | Switch between current zoom and initial zoom
-        */
+         */
         zoomState:{
             currentZoom: 0.0,
             sigmoidMultiplier: 1.0,
@@ -65,14 +81,13 @@
             Zoom.settings = {
                 ctrlDown:  isKeyDown && keyEvent.keyCode == 17,
                 shiftDown: isKeyDown && keyEvent.keyCode == 16,
-           //     altDown:   isKeyDown && keyEvent.keyCode == 18,
                 lockZoom:  (isKeyDown && keyEvent.keyCode == 226) ? !Zoom.settings.lockZoom : Zoom.settings.lockZoom,// Only change on keydown
                 zoomFactor: Zoom.settings.zoomFactor
             };
-           Zoom.updateZoom();
+            Zoom.updateZoom();
         },
         zommOnScroll: function(scrollEvent) {
-            if (!W.gsc || Zoom.settings.ctrlDown || Zoom.settings.altDown || Zoom.settings.shiftDown) 
+            if (!W.gsc || Zoom.settings.ctrlDown || Zoom.settings.altDown || Zoom.settings.shiftDown)
                 return;
             if (scrollEvent.wheelDelta < 0)
                 Zoom.zoomState.currentZoom++;
@@ -101,142 +116,154 @@
         }
     };
 
-    var DomManipulation ={
-
+    var DomManipulation = {
+        currentUserIndex: 0,
+        init: function(){
+            let initButtonInterval = setInterval(function(){
+                if(typeof(W.play_btn) !== 'undefined'){
+                    setTimeout(function(){
+                        console.log("Initialized DOM");
+                        DomManipulation.addListenerToPlayButton();
+                        DomManipulation.displayPlayerName();
+                        DomManipulation.addPlayerSwitching();
+                    }, 0);
+                    clearInterval(initButtonInterval);
+                }
+            }, 50);
+        },
+        addListenerToPlayButton: function(){
+            W.play_btn.btnf.addEventListener("click", SnakeScript.startGame);
+        },
+        displayPlayerName: function() {
+            W.nick_holder.firstElementChild.value = User.currentUser.name;
+        },
+        addPlayerSwitching: function(){
+            let arrowStyles = "cursor: pointer;left: 110px;color: #d8d7f8;position: absolute;";
+            W.nick_holder.insertAdjacentHTML("beforeend", "<div alt='Select previous player'  id='switch_previous_player' style='"+arrowStyles+"top:-2px;'>         &#9650;</div>");
+            W.nick_holder.insertAdjacentHTML("beforeend", "<div alt='Select next player'      id='switch_next_player'     style='"+arrowStyles+"bottom:-2px;'>      &#9660</div>");
+            W.document.getElementById("switch_previous_player").addEventListener("click", DomManipulation.switchToPreviousPlayer.bind(DomManipulation));
+            W.document.getElementById("switch_next_player")    .addEventListener("click", DomManipulation.switchToNextPlayer.bind(DomManipulation));
+        },
+        switchToPreviousPlayer(){
+            DomManipulation.currentUserIndex --;
+            DomManipulation.switchPlayer();
+        },
+        switchToNextPlayer(){
+            DomManipulation.currentUserIndex ++;
+            DomManipulation.switchPlayer();
+        },
+        switchPlayer: function () {
+            console.log("Switching player");
+            User.currentUser = DataHandler.getUserByTimestamp(DomManipulation.currentUserIndex);
+            DomManipulation.displayPlayerName();
+        }
     };
 
-    
-    let startedPlaying = null;  
-    /*
-     * Methods listed below belong to the
-     * User management and leaderboard functionality
-     */
-    function UserMethods(){
-        // public
-        let addHighscore = function(_score, _timePlayed){
-            this.highscores = getAttribute(this, "highscores");
-            // Init highscores, if not present
-            this.highscores.push({
+
+    var User = {
+        currentUser: null,
+        newUser: function(_name){
+            return{
+                highscores: [], // {score: 123, timePlayed: 456 (ms}
+                lastPlayed: 0, // Gets a Date.now() timestamp each time when played
+                name: _name,
+                skin: 41
+            };
+        },
+        addHighscore: function(_score, _timePlayed){
+            User.pushToAttribute("highscores", {
                 score: _score,
                 timePlayed: _timePlayed
             });
             // Sort highscores descending
-            this.highscores.sort( (a, b) => b.score - a.score);
-            // Save current skin
-            this.skin = getAttribute(this, "skin");
-            this.skin = typeof(localStorage.snakercv) === "undefined" ? this.skin : localStorage.snakercv;
-            // Update lastPlayed
-            this.lastPlayed = getAttribute(this, "lastPlayed");
-            this.lastPlayed = Date.now();
-        };
-        let getGamesPlayed = function(){
-            return getAttribute(this, "highscores").length;
-        };
-        let getBestScore = function(){
-            return getAttribute(this, "highscores").length === 0 ? 0 : getAttribute(this, "highscores")[0].score;
-        };
-        let getAttribute = function(that, tag){
-            // Try to access user.tag, if undefined create new
+            User.currentUser.highscores.sort((firstHighscore, secondHighscore) => secondHighscore.score - firstHighscore.score);
+            User.setAttribute("skin", typeof(localStorage.snakercv) === "undefined" ? User.getAttribute("skin") : localStorage.snakercv);
+            User.setAttribute("lastPlayed", Date.now());
+        },
+        getGamesPlayed: function(){
+            return User.getAttribute("highscores").length;
+        },
+        getBestScore: function(){
+            return User.getAttribute("highscores").length === 0 ? 0 : User.getAttribute("highscores")[0].score;
+        },
+        getAttribute: function(attributeName){
+            User.initAttribute(attributeName);
+            return User.currentUser[attributeName];
+        },
+        setAttribute: function(attributeName, value){
+            User.initAttribute(attributeName);
+            User.currentUser[attributeName] = value;
+        },
+        pushToAttribute: function(attributeName, value){
+            User.initAttribute(attributeName);
+            User.currentUser[attributeName].push(value);
+        },
+        initAttribute: function(attributeName){
+            // Try to access user.attributeName, if undefined create new
             // Useful if a new attribute has been added to User and old localStorage data is being used
-            if(typeof(that[tag]) === 'undefined')
-                that[tag] = newUser(that.name)[tag];
-            return that[tag];
-        };
-        // private
-        // Return public methods
-        return {
-            addHighscore: addHighscore,
-            getGamesPlayed: getGamesPlayed,
-            getBestScore: getBestScore,
-            getAttribute: getAttribute
-        };
-    }
-
-    function newUser(_name){
-        return{
-            highscores: [], // {score: 123, timePlayed: 456 (ms}
-            lastPlayed: 0, // Gets a Date.now() timestamp each time when played
-            name: _name,
-            skin: 41
-        };
-    }
-    function getUserList(){
-        let userList = localStorage.getItem("userList");
-        if(userList === null || userList === "null")
-            return {};
-        else
-            return JSON.parse(userList);
-    }
-    function saveUserList(userList){
-        localStorage.setItem("userList", JSON.stringify(userList));
-    }
-    function findUser(userName){
-        let userList = getUserList();
-        if(typeof(userList[userName]) !== "undefined")
-            return userList[userName];
-        return false;
-    }
-    // Get User with highest timestamp | todo: improve speed
-    function getCurrentUser(){
-        let userList = getUserList();
-        let maxTimeStamp = -1, user = false;
-        for(let userName in userList){
-            let currentUser = userList[userName];
-            let lastPlayed = UserMethods().getAttribute.bind()(currentUser, "lastPlayed"); // Ugly bunch of code.
-            if(lastPlayed > maxTimeStamp){
-                user = currentUser;
-                maxTimeStamp = lastPlayed;
+            if(typeof(User.currentUser[attributeName]) === 'undefined')
+                User.currentUser[attributeName] = User.newUser(User.currentUser.name)[attributeName];
+        }
+    };
+    var DataHandler = {
+        getUserList: function(){
+            let userList = localStorage.getItem("userList");
+            if(userList === null || userList === "null")
+                return {};
+            else
+                return JSON.parse(userList);
+        },
+        saveUserList: function(userList){
+            localStorage.setItem("userList", JSON.stringify(userList));
+        },
+        findUser: function(userName){
+            let userList = DataHandler.getUserList();
+            if(typeof(userList[userName]) !== "undefined")
+                return userList[userName];
+            return false;
+        },
+        saveScore: function(userName, score){
+            userName = userName.trim() === "" ? "default" : userName.trim();
+            console.log("Saving score of " + score + " for player "+userName);
+            let userList = DataHandler.getUserList();
+            let user = DataHandler.findUser(userName);
+            if(!user){
+                console.log("Creating new user.");
+                user = User.newUser(userName);
+                userList[userName] = user;
             }
+            User.currentUser = user;
+            User.addHighscore(score, Date.now() - SnakeScript.gameStartedTimestamp);
+            userList[user.name] = user;
+            DataHandler.saveUserList(userList);
+            console.log(userList);
+            SnakeScript.gameStartedTimestamp= null; // Make sure, results are not being saved multiple times
+        },
+        restoreCurrentUser: function(){
+            User.currentUser = DataHandler.getUserByTimestamp(0);
+        },
+        getUserByTimestamp: function(userIndex){
+            let userList = DataHandler.getUserList();
+            let orderedUsers = DataHandler.getUserNamesByLastPlayed();
+            if(orderedUsers.length === 0)
+                return User.newUser("");
+            userIndex = Math.max(0, (orderedUsers.length + userIndex) % orderedUsers.length);
+            return userList[orderedUsers[userIndex]];
+        },
+        getUserNamesByLastPlayed: function(){
+            let userList = DataHandler.getUserList();
+            return Object.keys(userList).sort(
+                function(user1, user2) {
+                    if(typeof(userList[user2].lastPlayed) === 'undefined')
+                        return -1;
+                    else if(typeof(userList[user1].lastPlayed) === 'undefined')
+                        return 1;
+                    else
+                        return userList[user2].lastPlayed - userList[user1].lastPlayed;
+                }
+            );
         }
-        return user;
-    }
-    function saveScore(userName, score){
-        userName = userName.trim() === "" ? "default" : userName.trim();
-        console.log("Saving score of " + score + " for player "+userName);
-        let userList = getUserList();
-        let user = findUser(userName);
-        if(!user){
-            console.log("Creating new user.");
-            user = newUser(userName);
-            console.log(user);
-            userList[userName] = user;
-        }
-        UserMethods().addHighscore.bind(user)(score, Date.now() - startedPlaying);
-        userList[user.name] = user;
-        saveUserList(userList);
-        console.log(userList);
-        startedPlaying = null; // Make sure, results are not being saved multiple times
-    }
-    let gameRunning;
-    function lookForGameEnd(){
-       if(!W.playing && startedPlaying !== null){
-           console.log("Finished playing..");
-           clearInterval(gameRunning);
-           let score = parseInt(W.lastscore.children[1].innerHTML);
-           saveScore(W.my_nick, score);
-       }
-    }
-    function startGame(){
-        if(startedPlaying === null){
-            console.log("Started playing..");
-            startedPlaying = Date.now();
-            gameRunning = setInterval(lookForGameEnd, 1000);
-        }
-    }
-    function addListenerToPlayButton(){
-        let initButtonInterval = setInterval(function(){
-            if(typeof(W.play_btn) !== 'undefined'){ //W.document.querySelector("#playh > div > div > div.nsi") !== null){
-                setTimeout(function(){
-                    console.log("Initialized Start Button");
-                    W.play_btn.btnf.addEventListener("click", startGame);
-                    console.log("Current user:");
-                    console.log(getCurrentUser());
-                    if(getCurrentUser())
-                        nick_holder.firstElementChild.value= getCurrentUser().name;
-                }, 0);
-                clearInterval(initButtonInterval);
-            }
-        }, 50);
-    }
+    };
     SnakeScript.init();
 })();
+
