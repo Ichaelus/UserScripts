@@ -1,9 +1,7 @@
-
-
 // ==UserScript==
 // @name         SnakeZoom
 // @namespace    https://github.com/Ichaelus/UserScripts
-// @version      0.3.1
+// @version      0.4.0
 // @description  try to take over the world!
 // @author       LaxLeo
 // @match        http://slither.io/
@@ -31,10 +29,17 @@
         },
         startGame: function(){
             if(SnakeScript.gameStartedTimestamp === null){
-                console.log("Started playing..");
+                console.log("Wanting to play");
                 SnakeScript.gameStartedTimestamp = Date.now();
-                SnakeScript.gameRunning = setInterval(SnakeScript.lookForGameEnd, 1000);
+                SnakeScript.lookForGameStarted();
             }
+        },
+        lookForGameStarted: function(){
+            if(W.playing){
+                console.log("Started playing..");
+                SnakeScript.gameRunning = setInterval(SnakeScript.lookForGameEnd, 100);
+            }else
+                setTimeout(SnakeScript.lookForGameStarted, 50);
         },
         lookForGameEnd: function(){
             if(!W.playing && SnakeScript.gameStartedTimestamp!== null){
@@ -136,6 +141,7 @@
         },
         displayPlayerName: function() {
             W.nick_holder.firstElementChild.value = User.currentUser.name;
+            DomManipulation.displayUserStatistics();
         },
         addPlayerSwitching: function(){
             let arrowStyles = "cursor: pointer;left: 110px;color: #d8d7f8;position: absolute;";
@@ -156,6 +162,34 @@
             console.log("Switching player");
             User.setCurrentUser(DataHandler.getUserByTimestamp(DomManipulation.currentUserIndex));
             DomManipulation.displayPlayerName();
+        },
+        displayUserStatistics: function(){
+            if(document.getElementById('userStats') === null){
+            let wrapperStyles = "color: white;\
+                                 font-family: Lucia Sans Unicode, Lucia Grande, sans-serif;\
+                                 padding: 0;\
+                                 width: 200px;\
+                                 position: relative;\
+                                 margin: 0px auto;\
+                                 list-style: none;";
+                let statisticNode = '<ul id="userStats" style="'+wrapperStyles+'"></ul>';
+                W.play_btn.elem.parentElement.insertAdjacentHTML("afterend", statisticNode);
+            }
+            document.getElementById('userStats').innerHTML = DomManipulation.transformStatisticsToRows();
+            //play_btn.elem.parentElement.nextSibling.insertBefore(new DOMParser().parseFromString("<ol/>", "text/xml").getElementsByTagName("ol")[0],play_btn.elem.parentElement.nextSibling);
+        },
+        transformStatisticsToRows: function(){
+            let printableValues = [
+                {title: "Highscore", value: User.getBestScore()},
+                {title: "Games played", value: User.getGamesPlayed()},
+                {title: "Minutes played", value: User.getMinutesPlayed()},
+                {title: "&#216;	score per game", value: User.getAverageScore()},
+                {title: "&#216;	score per minute", value: User.getScorePerMinutesPlayed()}
+            ];
+            let DOMString = "";
+            for(let attribute in printableValues)
+                DOMString += '<li style="clear:both;"><strong style="float: left;">'+printableValues[attribute].title+':</strong><span style="float: right;">'+printableValues[attribute].value+'</span></li>';
+            return DOMString;
         }
     };
 
@@ -186,6 +220,30 @@
         },
         getBestScore: function(){
             return User.getAttribute("highscores").length === 0 ? 0 : User.getAttribute("highscores")[0].score;
+        },
+        getAverageScore: function(){
+            if(User.getGamesPlayed() === 0)
+                return 0;
+            return Math.round(User.getTotalScore() / User.getGamesPlayed());
+        },
+        getTotalScore: function(){
+            let games = User.getAttribute("highscores"),
+                sum = 0;
+            for(let game in games)
+                sum += games[game].score;
+            return sum;
+        },
+        getMinutesPlayed: function(){
+            let games = User.getAttribute("highscores"),
+                sum = 0;
+            for(let game in games)
+                sum += games[game].timePlayed;
+            return Math.round(sum / 60000);
+        },
+        getScorePerMinutesPlayed: function(){
+           if(User.getMinutesPlayed() === 0)
+               return 0;
+            return Math.round(User.getTotalScore() / User.getMinutesPlayed());
         },
         getAttribute: function(attributeName){
             User.initAttribute(attributeName);
@@ -276,4 +334,5 @@
         }
     };
     SnakeScript.init();
-})();       
+})();
+
