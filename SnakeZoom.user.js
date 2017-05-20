@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SnakeZoom
 // @namespace    https://github.com/Ichaelus/UserScripts
-// @version      0.4.1
+// @version      0.4.2
 // @description  try to take over the world!
 // @author       LaxLeo
 // @match        http://slither.io/
@@ -142,7 +142,7 @@
             }, 50);
         },
         addListenerToPlayButton: function(){
-            W.play_btn.btnf.addEventListener("click", SnakeScript.startGame);
+            W.play_btn.elem.addEventListener("click", SnakeScript.startGame);
         },
         displayPlayerName: function() {
             W.nick_holder.firstElementChild.value = User.currentUser.name;
