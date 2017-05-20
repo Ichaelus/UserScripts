@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         SnakeZoom
 // @namespace    https://github.com/Ichaelus/UserScripts
-// @version      0.4.0
+// @version      0.4.1
 // @description  try to take over the world!
 // @author       LaxLeo
 // @match        http://slither.io/
@@ -22,6 +22,7 @@
     var SnakeScript = {
         gameStartedTimestamp: null,
         gameRunning: null,
+        currentScore: 0,
         init: function(){
             Zoom.init();
             DataHandler.restoreCurrentUser();
@@ -37,7 +38,7 @@
         lookForGameStarted: function(){
             if(W.playing){
                 console.log("Started playing..");
-                SnakeScript.gameRunning = setInterval(SnakeScript.lookForGameEnd, 100);
+                SnakeScript.gameRunning = setInterval(SnakeScript.lookForGameEnd, 40);
             }else
                 setTimeout(SnakeScript.lookForGameStarted, 50);
         },
@@ -45,8 +46,12 @@
             if(!W.playing && SnakeScript.gameStartedTimestamp!== null){
                 console.log("Finished playing..");
                 clearInterval(SnakeScript.gameRunning);
-                let score = parseInt(W.lastscore.children[1].innerHTML);
-                DataHandler.saveScore(W.my_nick, score);
+                //let score = parseInt(W.lastscore.children[1].innerHTML);
+                DataHandler.saveScore(W.my_nick, SnakeScript.currentScore);
+                DomManipulation.displayUserStatistics();
+            }else{
+                if(typeof(snake) !== "undefined" && typeof(fpsls) !== 'undefined')
+                    SnakeScript.currentScore = Math.floor(15 * (fpsls[snake.sct] + snake.fam / fmlts[snake.sct] - 1) - 5) / 1;
             }
         }
     };
