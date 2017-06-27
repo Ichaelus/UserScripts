@@ -1,0 +1,9 @@
+.cucumber-tv{
+  position: absolute;
+  right: 75px;
+  bottom: 75px;
+  display: flex;
+  background: hotpink;
+  width: 50px;
+  height: 50px;
+}
